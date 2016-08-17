@@ -1731,21 +1731,19 @@ describe('to satisfy assertion', function () {
         });
     });
 
-    // Debatable:
-    describe('when an unpresent value to is satisfied against a function', function () {
-        it('should allow an unpresent value to be satisfied against a non-expect.it function', function () {
-            expect({}, 'to satisfy', { foo: function () {}});
+    describe('when an unpresent value to is satisfied against an expect.it', function () {
+        it('should succeed', function () {
+            expect({}, 'to satisfy', { foo: expect.it('to be undefined') });
         });
 
-        it('should fail when the function throws', function () {
+        it('should fail with a diff', function () {
             expect(function () {
-                expect({}, 'to satisfy', { foo: function (value) { expect(value, 'to be a string'); }});
+                expect({}, 'to satisfy', { foo: expect.it('to be a string')});
             }, 'to throw', function (err) {
                 // Compensate for V8 5.1+ setting { foo: function () {} }.foo.name === 'foo'
                 // http://v8project.blogspot.dk/2016/04/v8-release-51.html
                 expect(err.getErrorMessage('text').toString().replace('function foo', 'function '), 'to satisfy',
-                    "expected {}\n" +
-                    "to satisfy { foo: function (value) { expect(value, 'to be a string'); } }\n" +
+                    "expected {} to satisfy { foo: expect.it('to be a string') }\n" +
                     "\n" +
                     "{\n" +
                     "  // missing: foo: should be a string\n" +
@@ -1755,36 +1753,34 @@ describe('to satisfy assertion', function () {
         });
     });
 
-    describe('when an unpresent value to is satisfied against an expect.it', function () {
-        it('should succeed', function () {
-            expect({}, 'to satisfy', { foo: expect.it('to be undefined') });
-        });
-
-        it('should fail with a diff', function () {
+    describe('with a function in the RHS object', function () {
+        it('should render a diff when the function is in the LHS at the correct position', function () {
+            function myFunction() {}
             expect(function () {
-                expect({}, 'to satisfy', { foo: expect.it('to be a string') });
+                expect({foo: myFunction}, 'to satisfy', { bar: 123, foo: myFunction});
             }, 'to throw',
-                "expected {} to satisfy { foo: expect.it('to be a string') }\n" +
+                "expected { foo: function myFunction() {} }\n" +
+                "to satisfy { bar: 123, foo: function myFunction() {} }\n" +
                 "\n" +
                 "{\n" +
-                "  // missing: foo: should be a string\n" +
+                "  foo: function myFunction() {}\n" +
+                "  // missing bar: 123\n" +
                 "}"
             );
         });
-    });
 
-    it('should not break when the assertion fails and there is a fulfilled function in the RHS', function () {
-        expect(function () {
-            expect({}, 'to satisfy', { bar: 123, foo: function () {}});
-        }, 'to throw', function (err) {
-            // Compensate for V8 5.1+ setting { foo: function () {} }.foo.name === 'foo'
-            // http://v8project.blogspot.dk/2016/04/v8-release-51.html
-            expect(err.getErrorMessage('text').toString().replace(/function foo/g, 'function '), 'to satisfy',
-                "expected {} to satisfy { bar: 123, foo: function () {} }\n" +
+        it('should render a diff when the function differs', function () {
+            function myFunction() {}
+            function myOtherFunction() {}
+            expect(function () {
+                expect({foo: myFunction}, 'to satisfy', { foo: myOtherFunction});
+            }, 'to throw',
+                "expected { foo: function myFunction() {} }\n" +
+                "to satisfy { foo: function myOtherFunction() {} }\n" +
                 "\n" +
                 "{\n" +
-                "  // missing bar: 123\n" +
-                "  // missing foo: should satisfy function () {}\n" +
+                "  foo: function myFunction() {} // expected { foo: function myFunction() {} }\n" +
+                "                                // to satisfy { foo: function myOtherFunction() {} }\n" +
                 "}"
             );
         });
